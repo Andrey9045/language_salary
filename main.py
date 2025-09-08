@@ -1,7 +1,11 @@
-import requests
+import os
 from datetime import datetime, timedelta
+import requests
 import time
 from terminaltables import AsciiTable
+from dotenv import load_dotenv  
+
+load_dotenv() 
 
 def get_hh_vacancies(language):
     url = 'https://api.hh.ru/vacancies'
@@ -28,7 +32,7 @@ def get_hh_vacancies(language):
 
 
 def get_superjob_vacancies(language):
-    api_key = 'v3.r.132806648.118e4bd266a41943689b775c1199faaf65811395.2ab73f0c69ddc080205984d0ae7fbc6b3475043f'  # Замените на ваш реальный токен
+    api_key = os.getenv('SUPJOB_KEY')  
     days_ago = 30
     all_vacancies = []
     page = 0
@@ -40,10 +44,10 @@ def get_superjob_vacancies(language):
         }
 
         params = {
-            'keyword': f'Программист {language}',  # Например, ищем вакансии для программистов
+            'keyword': f'Программист {language}',
             'town' : 'Москва',
             'date_published_from' : date_from, 
-            'count': 100,  # Количество вакансий, которые нужно получить
+            'count': 100,
             'page': page,
         }
     
@@ -118,6 +122,7 @@ def print_salary_table(stats_dict, title):
     print(table.table)
 
 if __name__ == '__main__':
+    load_dotenv()
     languages = ["Python", "Java", "JavaScript", "C#", "Ruby"]
     hh_stats = {}
     supjob_stats = {}
