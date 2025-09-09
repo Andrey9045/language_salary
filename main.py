@@ -5,9 +5,8 @@ import time
 from terminaltables import AsciiTable
 from dotenv import load_dotenv  
 
-load_dotenv() 
-
-def get_hh_vacancies(language):
+ 
+def get_hh_vacancies(language, area_id):
     url = 'https://api.hh.ru/vacancies'
     all_vacancies = []
     page = 0
@@ -17,22 +16,21 @@ def get_hh_vacancies(language):
     while page < pages_count:
         payload = {
             'text' : f'Программист {language}',
-            'area' : '1',
+            'area' : area_id,
             'date_from' : date_from,
             'page' : page 
         }
         response = requests.get(url, params = payload)
         response.raise_for_status()
-        data = response.json()
-        all_vacancies.extend(data.get('items',[]))
-        pages_count = data.get('pages',1)
+        hh_api_data = response.json()
+        all_vacancies.extend(hh_api_data.get('items',[]))
+        pages_count = hh_api_data.get('pages',1)
         page += 1
         time.sleep(0.5)
-    return all_vacancies, data.get('found', 0)
+    return all_vacancies, hh_api_data.get('found', 0)
 
 
-def get_superjob_vacancies(language):
-    api_key = os.getenv('SUPJOB_KEY')  
+def get_superjob_vacancies(language, api_key):  
     days_ago = 30
     all_vacancies = []
     page = 0
@@ -55,14 +53,16 @@ def get_superjob_vacancies(language):
     
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status() 
-        data = response.json()
-        if 'objects' in data:
-        	all_vacancies.extend(data['objects'])
-        more_pages = data.get('more', False)
+        superjob_api_data = response.json()
+        if 'objects' in superjob_api_data:
+        	all_vacancies.extend(superjob_api_data['objects'])
+        more_pages = superjob_api_data.get('more', False)
         if more_pages:
             page +=1
             time.sleep(0.5)
-    return all_vacancies
+    vacancies_found = superjob_api_data.get('total', 0)
+    return all_vacancies, vacancies_found
+
 
 def predict_rub_salary(vacancy):
     salary = vacancy.get('salary')
@@ -76,14 +76,15 @@ def predict_rub_salary(vacancy):
                 return salary['to']
     return None
 
-def hh_vacancies_info(vacancies, vacancies_count):
+
+def process_hh_vacancies_info(vacancies, vacancies_count):
     salaries = []
     for vacancy in vacancies:
         expected_salary = predict_rub_salary(vacancy)
         if expected_salary:
             salaries.append(expected_salary)
     vacancies_processed = len(salaries)
-    average_salary = int(sum(salaries)/vacancies_processed) if vacancies_processed > 0 else 0
+    average_salary = int(sum(salaries)/vacancies_processed) if vacancies_processed else 0
     return {
         "vacancies_found" : vacancies_count,
         "vacancies_processed" : vacancies_processed,
@@ -91,32 +92,37 @@ def hh_vacancies_info(vacancies, vacancies_count):
     }
 
 
-def superjob_vacancies_info(vacancies):
-    processed_vacancies = 0
-    total_salary = 0
+
+def predict_rub_salary_from_superjob(vacancy):
+    payment_from = vacancy.get('payment_from')
+    payment_to = vacancy.get('payment_to')
+    if payment_from and payment_to:
+        return (payment_from + payment_to) / 2
+    elif payment_from:
+        return payment_from
+    elif payment_to:
+        return payment_to
+    return None
+
+
+def process_superjob_vacancies_info(vacancies, vacancies_count):
+    salaries = []
     for job in vacancies:
-        payment_from = job.get('payment_from')
-        payment_to = job.get('payment_to')
-        if payment_from and payment_to:
-            total_salary += (payment_from + payment_to)/2
-            processed_vacancies += 1
-        elif payment_from:
-            total_salary += payment_from
-            processed_vacancies += 1
-        elif payment_to:
-            total_salary += payment_to
-            processed_vacancies += 1
-    average_salary = 0
-    if processed_vacancies > 0:
-        average_salary = int(total_salary/processed_vacancies)
+        expected_salary = predict_rub_salary_from_superjob(job)
+        if expected_salary:
+            salaries.append(expected_salary)
+    processed_vacancies = len(salaries)
+    average_salary = int(sum(salaries)/processed_vacancies) if processed_vacancies else 0
     return {
-        "vacancies_found" : len(vacancies),
+        "vacancies_found" : vacancies_count,
         "vacancies_processed": processed_vacancies,
         "average_salary": average_salary
     }
-def print_salary_table(stats_dict, title):
+
+
+def print_salary_table(stats, title):
     table_data = [['Язык программирования', 'Вакансий найдено', 'Вакансий обработано', 'Средняя зарплата']]
-    for lang, stats in stats_dict.items():
+    for lang, stats in stats.items():
         table_data.append([lang, stats['vacancies_found'], stats['vacancies_processed'], stats['average_salary']])
     table = AsciiTable(table_data, title)
     print(table.table)
@@ -124,14 +130,16 @@ def print_salary_table(stats_dict, title):
 if __name__ == '__main__':
     load_dotenv()
     languages = ["Python", "Java", "JavaScript", "C#", "Ruby"]
+    superjob_api_key = os.getenv('SUPJOB_KEY')
+    area_id = '1'
     hh_stats = {}
     supjob_stats = {}
     for language in languages:
-        vacancies = get_superjob_vacancies(language)
-        stats = superjob_vacancies_info(vacancies)
+        vacancies, vacancies_count = get_superjob_vacancies(language, superjob_api_key)
+        stats = process_superjob_vacancies_info(vacancies, vacancies_count)
         supjob_stats[language] = stats
-        vacancies,vacancies_count = get_hh_vacancies(language)
-        hh_stats[language] = hh_vacancies_info(vacancies, vacancies_count)
+        vacancies,vacancies_count = get_hh_vacancies(language, area_id)
+        hh_stats[language] = process_hh_vacancies_info(vacancies, vacancies_count)
     title = 'SuperJob'
     print_salary_table(supjob_stats, title)
     title = 'HeadHunters'
