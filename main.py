@@ -64,25 +64,16 @@ def get_superjob_vacancies(language, api_key):
     return all_vacancies, vacancies_found
 
 
-def predict_rub_salary(vacancy):
-    salary = vacancy.get('salary')
-    if salary:
-        if salary['currency'] =='RUR':
-            if salary['from'] and salary['to']:
-                return (salary['from'] + salary['to'])/2
-            elif salary['from']:
-                return salary['from']
-            elif salary['to']:
-                return salary['to']
-    return None
-
-
-def process_hh_vacancies_info(vacancies, vacancies_count):
-    salaries = []
+def process_hh_vacancies(vacancies, vacancies_count):
+    salaries = [] 
     for vacancy in vacancies:
-        expected_salary = predict_rub_salary(vacancy)
-        if expected_salary:
-            salaries.append(expected_salary)
+        salary = vacancy.get('salary')
+        if salary and salary['currency'] =='RUR':
+            payment_from = salary['from']
+            payment_to = salary['to']
+            expected_salary = calculation_salary(payment_from, payment_to)
+            if expected_salary:
+                salaries.append(expected_salary)
     vacancies_processed = len(salaries)
     average_salary = int(sum(salaries)/vacancies_processed) if vacancies_processed else 0
     return {
@@ -91,11 +82,9 @@ def process_hh_vacancies_info(vacancies, vacancies_count):
         "average_salary" : average_salary
     }
 
+    
 
-
-def predict_rub_salary_from_superjob(vacancy):
-    payment_from = vacancy.get('payment_from')
-    payment_to = vacancy.get('payment_to')
+def calculation_salary(payment_from, payment_to):
     if payment_from and payment_to:
         return (payment_from + payment_to) / 2
     elif payment_from:
@@ -105,10 +94,12 @@ def predict_rub_salary_from_superjob(vacancy):
     return None
 
 
-def process_superjob_vacancies_info(vacancies, vacancies_count):
+def process_superjob_vacancies(vacancies, vacancies_count):
     salaries = []
     for job in vacancies:
-        expected_salary = predict_rub_salary_from_superjob(job)
+        payment_from = job.get('payment_from')
+        payment_to = job.get('payment_to') 
+        expected_salary = calculation_salary(payment_from, payment_to)
         if expected_salary:
             salaries.append(expected_salary)
     processed_vacancies = len(salaries)
@@ -136,10 +127,10 @@ if __name__ == '__main__':
     supjob_stats = {}
     for language in languages:
         vacancies, vacancies_count = get_superjob_vacancies(language, superjob_api_key)
-        stats = process_superjob_vacancies_info(vacancies, vacancies_count)
+        stats = process_superjob_vacancies(vacancies, vacancies_count)
         supjob_stats[language] = stats
         vacancies,vacancies_count = get_hh_vacancies(language, area_id)
-        hh_stats[language] = process_hh_vacancies_info(vacancies, vacancies_count)
+        hh_stats[language] = process_hh_vacancies(vacancies, vacancies_count)
     title = 'SuperJob'
     print_salary_table(supjob_stats, title)
     title = 'HeadHunters'
