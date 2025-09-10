@@ -22,12 +22,12 @@ def get_hh_vacancies(language, area_id):
         }
         response = requests.get(url, params = payload)
         response.raise_for_status()
-        hh_api_data = response.json()
-        all_vacancies.extend(hh_api_data.get('items',[]))
-        pages_count = hh_api_data.get('pages',1)
+        hh_vacancies = response.json()
+        all_vacancies.extend(hh_vacancies.get('items',[]))
+        pages_count = hh_vacancies.get('pages',1)
         page += 1
         time.sleep(0.5)
-    return all_vacancies, hh_api_data.get('found', 0)
+    return all_vacancies, hh_vacancies.get('found', 0)
 
 
 def get_superjob_vacancies(language, api_key):  
@@ -53,14 +53,14 @@ def get_superjob_vacancies(language, api_key):
     
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status() 
-        superjob_api_data = response.json()
-        if 'objects' in superjob_api_data:
-        	all_vacancies.extend(superjob_api_data['objects'])
-        more_pages = superjob_api_data.get('more', False)
+        superjob_vacancies = response.json()
+        if 'objects' in superjob_vacancies:
+        	all_vacancies.extend(superjob_vacancies['objects'])
+        more_pages = superjob_vacancies.get('more', False)
         if more_pages:
             page +=1
             time.sleep(0.5)
-    vacancies_found = superjob_api_data.get('total', 0)
+    vacancies_found = superjob_vacancies.get('total', 0)
     return all_vacancies, vacancies_found
 
 
