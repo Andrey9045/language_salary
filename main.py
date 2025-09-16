@@ -71,7 +71,7 @@ def process_hh_vacancies(vacancies, vacancies_count):
         if salary and salary['currency'] =='RUR':
             payment_from = salary['from']
             payment_to = salary['to']
-            expected_salary = calculation_salary(payment_from, payment_to)
+            expected_salary = calculate_salary(payment_from, payment_to)
             if expected_salary:
                 salaries.append(expected_salary)
     vacancies_processed = len(salaries)
@@ -84,7 +84,7 @@ def process_hh_vacancies(vacancies, vacancies_count):
 
     
 
-def calculation_salary(payment_from, payment_to):
+def calculate_salary(payment_from, payment_to):
     if payment_from and payment_to:
         return (payment_from + payment_to) / 2
     elif payment_from:
@@ -99,7 +99,7 @@ def process_superjob_vacancies(vacancies, vacancies_count):
     for job in vacancies:
         payment_from = job.get('payment_from')
         payment_to = job.get('payment_to') 
-        expected_salary = calculation_salary(payment_from, payment_to)
+        expected_salary = calculate_salary(payment_from, payment_to)
         if expected_salary:
             salaries.append(expected_salary)
     processed_vacancies = len(salaries)
