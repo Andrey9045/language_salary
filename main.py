@@ -35,7 +35,7 @@ def get_superjob_vacancies(language, api_key):
     all_vacancies = []
     page = 0
     more_pages = True
-    date_from = (datetime.now() - timedelta(days = days_ago)).isoformat()
+    date_from = int((datetime.now() - timedelta(days=days_ago)).timestamp())
     while more_pages:
         headers = {
             'X-Api-App-Id': api_key
@@ -59,7 +59,6 @@ def get_superjob_vacancies(language, api_key):
         more_pages = superjob_vacancies.get('more', False)
         if more_pages:
             page +=1
-            time.sleep(0.5)
     vacancies_found = superjob_vacancies.get('total', 0)
     return all_vacancies, vacancies_found
 
@@ -68,12 +67,15 @@ def process_hh_vacancies(vacancies, vacancies_count):
     salaries = [] 
     for vacancy in vacancies:
         salary = vacancy.get('salary')
-        if salary and salary['currency'] =='RUR':
-            payment_from = salary['from']
-            payment_to = salary['to']
-            expected_salary = calculate_salary(payment_from, payment_to)
-            if expected_salary:
-                salaries.append(expected_salary)
+        if not salary or salary['currency'] != 'RUR':
+            continue
+    
+        payment_from = salary['from']
+        payment_to = salary['to']
+        expected_salary = calculate_salary(payment_from, payment_to)
+        if not expected_salary:
+            continue
+        salaries.append(expected_salary)
     vacancies_processed = len(salaries)
     average_salary = int(sum(salaries)/vacancies_processed) if vacancies_processed else 0
     return {
@@ -100,8 +102,9 @@ def process_superjob_vacancies(vacancies, vacancies_count):
         payment_from = job.get('payment_from')
         payment_to = job.get('payment_to') 
         expected_salary = calculate_salary(payment_from, payment_to)
-        if expected_salary:
-            salaries.append(expected_salary)
+        if not expected_salary:
+            continue
+        salaries.append(expected_salary)
     processed_vacancies = len(salaries)
     average_salary = int(sum(salaries)/processed_vacancies) if processed_vacancies else 0
     return {
